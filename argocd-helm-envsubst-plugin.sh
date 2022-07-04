@@ -13,7 +13,7 @@ NAMESPACE=$(cat values.yaml | sed -n 's/.*kubeNamespace: \(.*\)$/\1/p')
 
 ## Find environment config yaml
 CONFIG_FILE=""
-if [ -d "config" ] && [ -f "${ARGOCD_ENV_ENVIRONMENT}" ]; then
+if [ -f "config/${ARGOCD_ENV_ENVIRONMENT}.yaml" ]; then
     CONFIG_FILE="-f config/${ARGOCD_ENV_ENVIRONMENT}.yaml"
 fi
 
