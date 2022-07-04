@@ -18,6 +18,6 @@ RUN wget https://get.helm.sh/helm-${HELM_VERSION}-linux-${HELM_ARH}.tar.gz -O - 
 COPY argocd-helm-envsubst-plugin.sh /usr/bin/argocd-helm-envsubst-plugin
 RUN chmod +rx /usr/bin/argocd-helm-envsubst-plugin
 
+# Setup user
 RUN adduser --uid ${USER_ID} ${USER} --disabled-password
 USER ${USER}
-
