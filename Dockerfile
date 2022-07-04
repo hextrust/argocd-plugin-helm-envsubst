@@ -16,10 +16,10 @@ RUN wget https://get.helm.sh/helm-${HELM_VERSION}-linux-${HELM_ARH}.tar.gz -O - 
     chmod +x /usr/bin/helm && \
     rm -rf linux-${HELM_ARH}
 
-COPY argocd-helm-envsubst-plugin.sh /bin/argocd-helm-envsubst-plugin
+COPY argocd-helm-envsubst-plugin.sh /usr/bin/argocd-helm-envsubst-plugin
 
 # Move existing group to give room for id 999
 RUN sed -i "s/999/99/" /etc/group
-RUN adduser -h /home/${USER} -s /bin/bash -u ${USER_ID} ${USER} -D
+RUN adduser -h /home/${USER} -s /usr/bin/bash -u ${USER_ID} ${USER} -D
 USER ${USER}
 
