@@ -1,0 +1,4 @@
+include:
+  - project: technology/utils/cicd/gitlab-ci-pipeline-templates
+    file: 
+      - docker.gitlab-ci.yml
