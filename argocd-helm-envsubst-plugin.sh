@@ -32,11 +32,12 @@ helm_release_name() {
     if [ "${RELEASE_NAME}" != "null" ]; then
         HELM_NAME_FLAG="--release-name ${RELEASE_NAME}"
     fi
+    echo "RELEASE_NAME: ${RELEASE_NAME}, HELM_NAME_FLAG: ${HELM_NAME_FLAG}" >> /tmp/argocd-helm-envsubst-plugin.log
 }
 
 add_sync_option() {
     FILE=$(yq '.argocd.syncOptionReplace.name' values.yaml)
-    HELM_NAME_FLAG=""
+    HELM_POST_RENDER_FLAG=""
     if [ "${FILE}" != "null" ]; then
         # A wrapper script to run kustomize in helm post-renderer
         cat << EOF > kustomize-renderer
