@@ -1,5 +1,5 @@
 # Use same image as argocd
-FROM ubuntu:21.10
+FROM ubuntu:22.10
 
 ARG HELM_VERSION="v3.8.1"
 ARG HELM_ARH="amd64"
