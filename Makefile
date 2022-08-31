@@ -7,7 +7,21 @@ build-run-sh:
 	docker exec -it argocd-helm-envsubst-plugin sh
 
 build-push:
-	docker buildx build --platform linux/amd64 -t registry.gitlab.int.hextech.io/technology/utils/cicd/argocd-helm-envsubst-plugin:$(GIT_HASH) .
-	docker push registry.gitlab.int.hextech.io/technology/utils/cicd/argocd-helm-envsubst-plugin:$(GIT_HASH)
-	docker buildx build --platform linux/arm64 -t registry.gitlab.int.hextech.io/technology/utils/cicd/argocd-helm-envsubst-plugin:$(GIT_HASH)-arm64 .
-	docker push registry.gitlab.int.hextech.io/technology/utils/cicd/argocd-helm-envsubst-plugin:$(GIT_HASH)-arm64
+	docker buildx create --use
+	docker buildx build --platform linux/arm64,linux/amd64 --push --build-arg GOOS=linux --build-arg GOARCH=amd64 -t registry.gitlab.int.hextech.io/technology/utils/cicd/argocd-helm-envsubst-plugin:$(GIT_HASH) .
+	docker buildx rm
+
+tmp:
+	docker buildx build --platform linux/amd64 --push --build-arg GOOS=linux --build-arg GOARCH=amd64 -t registry.gitlab.int.hextech.io/technology/utils/cicd/argocd-helm-envsubst-plugin:$(GIT_HASH) .
+
+build:
+	GOOS=darwin GOARCH=amd64 go build -o plugin-darwin-amd64
+	GOOS=darwin GOARCH=arm64 go build -o plugin-darwin-arm64
+	GOOS=linux GOARCH=amd64 go build -o plugin-linux-amd64
+	GOOS=linux GOARCH=arm64 go build -o plugin-linux-arm64
+
+helm-build:
+	ARGOCD_ENV_ENVIRONMENT=alpha ARGOCD_ENV_ES_HOST=abc ARGOCD_ENV_ES_PORT=6379 go run main.go build --path asset-master-service --repository-path repositories.yaml
+
+helm-render:
+	ARGOCD_ENV_ENVIRONMENT=alpha ARGOCD_ENV_ES_HOST=abc ARGOCD_ENV_ES_PORT=6379 go run main.go render --path asset-master-service
