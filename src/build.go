@@ -46,20 +46,21 @@ func Build(helmChartPath string, repoConfigPath string, helmRegistrySecretConfig
 	}
 
 	os.Chdir(helmChartPath)
-	
 	chartYaml := readChartYaml()
+	
+	// Skip if chart doesn't have dependency
+	dependencies := chartYaml["dependencies"]
+	if dependencies == nil || len(dependencies.([]interface{})) <= 0 {
+		log.Println("Not dependency found.")
+		return
+	}
+
+	// Use app name as config file name
 	repositoryConfigName := repoConfigPath + chartYaml["name"].(string) + ".yaml"
 	log.Printf("repositoryConfigName: %s\n", repositoryConfigName)
 	
 	generateRepositoryConfig(repositoryConfigName, chartYaml, helmRegistrySecretConfigPath)
-
-	command := "helm"
-	args := []string{"dependency", "build", "--repository-config", repositoryConfigName}
-	out, err := exec.Command(command, args...).Output()
-	if err != nil {
-		log.Fatalf("Exec helm dependency build error: %v", err)
-	}
-	log.Println(string(out))
+	executeHelmDependencyBuild(repositoryConfigName)
 }
 
 func generateRepositoryConfig(repositoryConfigName string, chartYaml map[string]interface{}, helmRegistrySecretConfigPath string) {
@@ -126,4 +127,14 @@ func readRepositoryConfig(repositoryUrl string, helmRegistrySecretConfigPath str
 		}
 	}
 	return "", ""
+}
+
+func executeHelmDependencyBuild(repositoryConfigName string) {
+	command := "helm"
+	args := []string{"dependency", "build", "--repository-config", repositoryConfigName}
+	out, err := exec.Command(command, args...).Output()
+	if err != nil {
+		log.Fatalf("Exec helm dependency build error: %v", err)
+	}
+	log.Println(string(out))
 }
