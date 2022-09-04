@@ -9,9 +9,9 @@ COPY . .
 
 ARG GOOS GOARCH
 # CGO_ENABLED=0 for cross platform build
-RUN CGO_ENABLED=0 GOOS=${GOOS} GOARCH=${GOARCH} go build -o hex-argocd-plugin
+RUN CGO_ENABLED=0 GOOS=${GOOS} GOARCH=${GOARCH} go build -o argocd-helm-envsubst-plugin
 
 FROM alpine:3.16
 
 WORKDIR /app
-COPY --from=builder /app/hex-argocd-plugin .
+COPY --from=builder /app/argocd-helm-envsubst-plugin .
