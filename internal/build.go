@@ -1,4 +1,4 @@
-package src
+package internal
 
 import (
 	"fmt"
@@ -34,7 +34,13 @@ type Repository struct {
 	Url                   string `default:"" yaml:"url"`
 }
 
-func Build(helmChartPath string, repoConfigPath string, helmRegistrySecretConfigPath string) {
+type Builder struct {}
+
+func NewBuilder() *Builder { 
+	return &Builder{}
+}
+
+func (builder *Builder) Build(helmChartPath string, repoConfigPath string, helmRegistrySecretConfigPath string) {
 	if len(helmChartPath) <= 0 {
 		helmChartPath = defaultHelmChartPath
 	}
@@ -46,7 +52,7 @@ func Build(helmChartPath string, repoConfigPath string, helmRegistrySecretConfig
 	}
 
 	os.Chdir(helmChartPath)
-	chartYaml := readChartYaml()
+	chartYaml := ReadChartYaml()
 	
 	// Skip if chart doesn't have dependency
 	dependencies := chartYaml["dependencies"]
@@ -59,11 +65,11 @@ func Build(helmChartPath string, repoConfigPath string, helmRegistrySecretConfig
 	repositoryConfigName := repoConfigPath + chartYaml["name"].(string) + ".yaml"
 	log.Printf("repositoryConfigName: %s\n", repositoryConfigName)
 	
-	generateRepositoryConfig(repositoryConfigName, chartYaml, helmRegistrySecretConfigPath)
-	executeHelmDependencyBuild(repositoryConfigName)
+	builder.generateRepositoryConfig(repositoryConfigName, chartYaml, helmRegistrySecretConfigPath)
+	builder.executeHelmDependencyBuild(repositoryConfigName)
 }
 
-func generateRepositoryConfig(repositoryConfigName string, chartYaml map[string]interface{}, helmRegistrySecretConfigPath string) {
+func (builder *Builder) generateRepositoryConfig(repositoryConfigName string, chartYaml map[string]interface{}, helmRegistrySecretConfigPath string) {
 	repos := []Repository{}
 	// Read dependencies from Chart.yaml, and generate repositories.yaml from it
 	for _, dep := range chartYaml["dependencies"].([]interface{}) {
@@ -75,7 +81,7 @@ func generateRepositoryConfig(repositoryConfigName string, chartYaml map[string]
 		for _, authReg := range authHelmRegistry {
 			if strings.HasPrefix(repositoryUrl, authReg) {
 				// Read username password from /helm-working-dir/plugin-repositories/repositories.yaml
-				u, p := readRepositoryConfig(repositoryUrl, helmRegistrySecretConfigPath)
+				u, p := builder.readRepositoryConfig(repositoryUrl, helmRegistrySecretConfigPath)
 				username = u
 				password = p
 				break
@@ -107,7 +113,7 @@ func generateRepositoryConfig(repositoryConfigName string, chartYaml map[string]
 	}
 }
 
-func readRepositoryConfig(repositoryUrl string, helmRegistrySecretConfigPath string) (string, string) {
+func (builder *Builder) readRepositoryConfig(repositoryUrl string, helmRegistrySecretConfigPath string) (string, string) {
 	repo := HelmRepositoryConfig{}
 
 	// Read helm repository config created by Terraform
@@ -129,7 +135,7 @@ func readRepositoryConfig(repositoryUrl string, helmRegistrySecretConfigPath str
 	return "", ""
 }
 
-func executeHelmDependencyBuild(repositoryConfigName string) {
+func (builder *Builder) executeHelmDependencyBuild(repositoryConfigName string) {
 	command := "helm"
 	args := []string{"dependency", "build", "--repository-config", repositoryConfigName}
 	out, err := exec.Command(command, args...).Output()

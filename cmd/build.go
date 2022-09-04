@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
-	app "gitlab.int.hextech.io/technology/utils/cicd/argocd-helm-envsubst-plugin/src"
+	app "gitlab.int.hextech.io/technology/utils/cicd/argocd-helm-envsubst-plugin/internal"
 )
 
 var (
@@ -22,6 +22,6 @@ var buildCmd = &cobra.Command{
 	Use:   "build",
 	Short: "Similar to helm dependency build",
 	Run: func(cmd *cobra.Command, args []string) {
-		app.Build(buildPath, repositoryConfigPath, helmRegistrySecretConfigPath)
+		app.NewBuilder().Build(buildPath, repositoryConfigPath, helmRegistrySecretConfigPath)
 	},
 }

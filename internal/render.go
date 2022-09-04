@@ -1,4 +1,4 @@
-package src
+package internal
 
 import (
 	"fmt"
@@ -42,7 +42,13 @@ type HexArgocdPluginConfig struct {
 	SyncOptionReplace []string `yaml:"syncOptionReplace,omitempty"`
 }
 
-func RenderTemplate(helmChartPath string, debugLogPath string) {
+type Renderer struct {}
+
+func NewRenderer() *Renderer {
+	return &Renderer{}
+}
+
+func (renderer *Renderer) RenderTemplate(helmChartPath string, debugLogPath string) {
 	if len(debugLogPath) <= 0 {
 		debugLogPath = defaultDebugLogFilePath
 	}
@@ -56,14 +62,14 @@ func RenderTemplate(helmChartPath string, debugLogPath string) {
 	command := "helm"
 	args := []string{"template"}
 
-	configFileName := findHelmConfig()
+	configFileName := renderer.findHelmConfig()
 	if len(configFileName) > 0 {
 		args = append(args, "-f")
 		args = append(args, configFileName)
 	}
 
-	configFile := mergeYaml("values.yaml", configFileName)
-	argocdConfig := readArgocdConfig(configFile)
+	configFile := renderer.mergeYaml("values.yaml", configFileName)
+	argocdConfig := renderer.readArgocdConfig(configFile)
 
 	if len(argocdConfig.Namespace) > 0 {
 		args = append(args, "--namespace")
@@ -82,25 +88,25 @@ func RenderTemplate(helmChartPath string, debugLogPath string) {
 	}
 
 	if len(argocdConfig.SyncOptionReplace) > 0 {
-		postRendererScript := preparePostRenderer(argocdConfig.SyncOptionReplace)
+		postRendererScript := renderer.preparePostRenderer(argocdConfig.SyncOptionReplace)
 		args = append(args, "--post-renderer")
 		args = append(args, postRendererScript)
 	}
 
 	args = append(args, ".")
-	cmd := envsubst(strings.Join(args, " "))
-	debugLog(cmd+"\n", debugLogPath)
+	cmd := renderer.envsubst(strings.Join(args, " "))
+	renderer.debugLog(cmd+"\n", debugLogPath)
 
 	out, err := exec.Command(command, strings.Split(cmd, " ")...).Output()
 	if err != nil {
 		log.Fatalf("Exec helm template error: %v", err)
 	}
 
-	manifest := envsubst(string(out))
+	manifest := renderer.envsubst(string(out))
 	fmt.Println(manifest)
 }
 
-func dependencyBuild() {
+func (renderer *Renderer) dependencyBuild() {
 	out, err := exec.Command("helm", "dependency", "build").Output()
 	if err != nil {
 		log.Fatalf("Exec helm dependency build error: %v", err)
@@ -108,7 +114,7 @@ func dependencyBuild() {
 	log.Printf("%s\n", out)
 }
 
-func findHelmConfig() string {
+func (renderer *Renderer) findHelmConfig() string {
 	var files []string
 	root := "config/"
 	environment := os.Getenv("ARGOCD_ENV_ENVIRONMENT")
@@ -131,7 +137,7 @@ func findHelmConfig() string {
 	return ""
 }
 
-func readArgocdConfig(configFile string) *HexArgocdPluginConfig {
+func (renderer *Renderer) readArgocdConfig(configFile string) *HexArgocdPluginConfig {
 	c := HelmConfig{}
 	err := yaml.Unmarshal([]byte(configFile), &c)
 	if err != nil {
@@ -140,7 +146,7 @@ func readArgocdConfig(configFile string) *HexArgocdPluginConfig {
 	return &c.ArgocdConfig
 }
 
-func envsubst(str string) string {
+func (renderer *Renderer) envsubst(str string) string {
 	for _, env := range envsubstList {
 		envVar := os.Getenv(env)
 		if len(envVar) > 0 {
@@ -150,7 +156,7 @@ func envsubst(str string) string {
 	return str
 }
 
-func preparePostRenderer(files []string) string {
+func (renderer *Renderer) preparePostRenderer(files []string) string {
 	scriptFileName := "./kustomize-renderer"
 
 	// Create shell script
@@ -187,7 +193,7 @@ kustomize build . && rm all.yaml && rm kustomization.yaml && rm kustomize-render
 	return scriptFileName
 }
 
-func mergeYaml(filenames ...string) string {
+func (renderer *Renderer) mergeYaml(filenames ...string) string {
 	if len(filenames) <= 0 {
 		log.Fatalf("You must provide at least one filename for reading Values")
 	}
@@ -223,13 +229,13 @@ func mergeYaml(filenames ...string) string {
 	return string(bs)
 }
 
-func debugLog(cmd string, debugLogFilePath string) {
+func (renderer *Renderer) debugLog(cmd string, debugLogFilePath string) {
 	date := time.Now()
 	formattedDate := date.Format("01-02-2006")
 	logFilePath := debugLogFilePath + formattedDate + ".log"
 
 	// Log line name - Get from Chart.yaml name field
-	chartYaml := readChartYaml()
+	chartYaml := ReadChartYaml()
 
 	// Create log line
 	formattedDateTime := date.Format("2006-01-02 15:04:05.000000")
@@ -237,11 +243,9 @@ func debugLog(cmd string, debugLogFilePath string) {
 
 	// Create log file if not exist
 	if _, err := ioutil.ReadFile(logFilePath); err != nil {
-		err = os.Mkdir(debugLogFilePath, 0755)
-		if err != nil {
-			log.Fatalf("Failed to create log folder: %v", err)
-		}
-
+		// Ignore if not able to create folder
+		_ = os.Mkdir(debugLogFilePath, 0755)
+		
 		f, err := os.Create(logFilePath)
 		if err != nil {
 			log.Fatalf("Fail to create log file: %v", err)
@@ -258,16 +262,4 @@ func debugLog(cmd string, debugLogFilePath string) {
 	if _, err = f.WriteString(logLine); err != nil {
 		log.Fatalf("Fail to write debug log file:", err)
 	}
-}
-
-func readChartYaml() map[string]interface{} {
-	var chartYaml map[string]interface{}
-	bs, err := ioutil.ReadFile("Chart.yaml")
-	if err != nil {
-		log.Fatalf("Read Chart.yaml error: %v", err)
-	}
-	if err := yaml.Unmarshal(bs, &chartYaml); err != nil {
-		log.Fatalf("Unmarshal Chart.yaml error: %v", err)
-	}
-	return chartYaml
 }

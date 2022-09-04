@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
-	app "gitlab.int.hextech.io/technology/utils/cicd/argocd-helm-envsubst-plugin/src"
+	app "gitlab.int.hextech.io/technology/utils/cicd/argocd-helm-envsubst-plugin/internal"
 )
 
 var (
@@ -20,6 +20,6 @@ var renderCmd = &cobra.Command{
 	Use:   "render",
 	Short: "Similar to helm template .",
 	Run: func(cmd *cobra.Command, args []string) {
-		app.RenderTemplate(renderPath, logLocation)
+		app.NewRenderer().RenderTemplate(renderPath, logLocation)
 	},
 }
