@@ -15,3 +15,5 @@ semantic:release:test:
     - npm install -g semantic-release @semantic-release/gitlab --save-dev
   script:
     - semantic-release
+  rules:
+    - when: manual    
