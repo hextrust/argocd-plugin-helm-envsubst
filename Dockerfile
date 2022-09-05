@@ -1,27 +1,17 @@
-# Use same image as argocd
-FROM ubuntu:21.10
+FROM golang:1.18-alpine3.16 as builder
 
-ARG HELM_VERSION="v3.8.1"
-ARG HELM_ARH="amd64"
-# ARG USER="argocd"
-# ARG USER_ID="1001" 
+WORKDIR /app
+COPY go.mod .
+COPY go.sum .
+RUN go mod download
 
-# Base tool
-RUN apt update && apt install -y gettext wget
+COPY . .
 
-# Install helm
-RUN wget https://get.helm.sh/helm-${HELM_VERSION}-linux-${HELM_ARH}.tar.gz -O - | tar -xz && \
-    mv linux-${HELM_ARH}/helm /usr/bin/helm && \
-    chmod +x /usr/bin/helm && \
-    rm -rf linux-${HELM_ARH}
+ARG GOOS GOARCH
+# CGO_ENABLED=0 for cross platform build
+RUN CGO_ENABLED=0 GOOS=${GOOS} GOARCH=${GOARCH} go build -o argocd-helm-envsubst-plugin
 
-# Install yq
-RUN wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 && \
-    chmod a+x /usr/local/bin/yq
+FROM alpine:3.16
 
-COPY argocd-helm-envsubst-plugin.sh /usr/bin/argocd-helm-envsubst-plugin
-RUN chmod +rx /usr/bin/argocd-helm-envsubst-plugin
-
-# Setup user
-# RUN adduser --uid ${USER_ID} ${USER} --disabled-password
-# USER ${USER}
+WORKDIR /app
+COPY --from=builder /app/argocd-helm-envsubst-plugin .

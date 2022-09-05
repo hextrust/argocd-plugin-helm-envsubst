@@ -1,0 +1,5 @@
+failure-threshold: error
+override:
+  info:
+    - DL3018 # Not pinning package versions at this time
+    - DL4006 # SHELL option ignored
