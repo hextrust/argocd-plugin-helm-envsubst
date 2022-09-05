@@ -1,13 +1,13 @@
 include:
   - project: technology/utils/cicd/gitlab-ci-pipeline-templates
-    ref: v2.0.2
+    ref: TECH-249/tagging
     file:
       - workflow.gitlab-ci.yml
       - docker.buildx.gitlab-ci.yml
 
 semantic:release:test:
   image: node:16.14-alpine
-  stage: test
+  stage: release
   variables:
     GL_TOKEN: ${GL_TOKEN}
   before_script:
