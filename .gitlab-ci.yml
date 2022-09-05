@@ -16,4 +16,5 @@ semantic:release:test:
   script:
     - semantic-release
   rules:
-    - when: manual    
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      when: manual
