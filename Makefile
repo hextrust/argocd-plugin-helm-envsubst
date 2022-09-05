@@ -19,7 +19,7 @@ build:
 	GOOS=linux GOARCH=arm64 go build -o plugin-linux-arm64
 
 helm-build:
-	ARGOCD_ENV_ENVIRONMENT=alpha ARGOCD_ENV_ES_HOST=abc ARGOCD_ENV_ES_PORT=6379 go run main.go build --path asset-master-service --repository-path repositories.yaml
+	go run main.go build --path asset-master-service --repository-path repositories.yaml
 
 helm-render:
-	ARGOCD_ENV_ENVIRONMENT=alpha ARGOCD_ENV_ES_HOST=abc ARGOCD_ENV_ES_PORT=6379 go run main.go render --path asset-master-service
+	go run main.go render --path asset-master-service
