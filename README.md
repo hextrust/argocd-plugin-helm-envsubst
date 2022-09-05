@@ -27,6 +27,24 @@ Flags:
       --path string           Path to the application
 ```
 
+## Configuration
+| Parameter         | Description                                                              | Default        |
+|-------------------|--------------------------------------------------------------------------|----------------|
+| namespace         | Namespace to deploy = `helm template --namespace xxx`                    | ""             |
+| releaseName       | Release name = `helm template --release-name xxx`                        | ""             |
+| skipCRD           | Set to true if you want to skip deploy CRD = `helm template --skip-crds` | false          |
+| syncOptionReplace | Resources to add `argocd.argoproj.io/sync-options:Replace=true`          | []             |
+
+```bash
+# Example
+argocd:
+  namespace: metazen-${ARGOCD_ENV_ENVIRONMENT}
+  releaseName: asset-master-service
+  skipCRD: true 
+  syncOptionReplace:
+    - crds/crd-alertmanagerconfigs.yaml
+```
+
 ## Development
 ```bash
 # To rebuild, run and go into shell script
