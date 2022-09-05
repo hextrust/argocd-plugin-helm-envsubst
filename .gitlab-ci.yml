@@ -4,3 +4,14 @@ include:
     file:
       - workflow.gitlab-ci.yml
       - docker.buildx.gitlab-ci.yml
+
+semantic:release:test:
+  image: node:16.14-alpine
+  stage: test
+  variables:
+    GL_TOKEN: ${GL_TOKEN}
+  before_script:
+    - apk update && apk add git ca-certificates
+    - npm install -g semantic-release @semantic-release/gitlab --save-dev
+  script:
+    - semantic-release
