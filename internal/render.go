@@ -13,22 +13,9 @@ import (
 )
 
 var (
-	envsubstList = []string{
-		"ARGOCD_ENV_CLUSTER",
-		"ARGOCD_ENV_ENVIRONMENT",
-		"ARGOCD_ENV_DOMAIN",
-		"ARGOCD_ENV_OPERATOR_DOMAIN",
-		"ARGOCD_ENV_HOSTED_ZONE_ID",
-		"ARGOCD_ENV_APP_NAME",
-		"ARGOCD_ENV_ES_HOST",
-		"ARGOCD_ENV_ES_PORT",
-		"ARGOCD_ENV_DB_HOST",
-		"ARGOCD_ENV_DB_PORT",
-		"ARGOCD_ENV_AWS_ACCOUNT",
-	}
-
 	defaultDebugLogFilePath = "/tmp/argocd-helm-envsubst-plugin/"
 	defaultHelmChartPath    = "./"
+	argocdEnvVarPrefix      = "ARGOCD_ENV"
 )
 
 type HelmConfig struct {
@@ -58,6 +45,7 @@ func (renderer *Renderer) RenderTemplate(helmChartPath string, debugLogPath stri
 	}
 
 	os.Chdir(helmChartPath)
+	envs := renderer.getArgocdEnvList()
 
 	command := "helm"
 	args := []string{"template"}
@@ -94,7 +82,7 @@ func (renderer *Renderer) RenderTemplate(helmChartPath string, debugLogPath stri
 	}
 
 	args = append(args, ".")
-	cmd := renderer.envsubst(strings.Join(args, " "))
+	cmd := renderer.envsubst(strings.Join(args, " "), envs)
 	renderer.debugLog(cmd+"\n", debugLogPath)
 
 	out, err := exec.Command(command, strings.Split(cmd, " ")...).Output()
@@ -102,7 +90,7 @@ func (renderer *Renderer) RenderTemplate(helmChartPath string, debugLogPath stri
 		log.Fatalf("Exec helm template error: %v", err)
 	}
 
-	manifest := renderer.envsubst(string(out))
+	manifest := renderer.envsubst(string(out), envs)
 	fmt.Println(manifest)
 }
 
@@ -146,8 +134,19 @@ func (renderer *Renderer) readArgocdConfig(configFile string) *HexArgocdPluginCo
 	return &c.ArgocdConfig
 }
 
-func (renderer *Renderer) envsubst(str string) string {
-	for _, env := range envsubstList {
+func (renderer *Renderer) getArgocdEnvList() []string {
+	envs := []string{}
+	for _, env := range os.Environ() {
+		key := strings.Split(env, "=")[0]
+		if strings.HasPrefix(key, argocdEnvVarPrefix) {
+			envs = append(envs, key)
+		}
+	}
+	return envs
+}
+
+func (renderer *Renderer) envsubst(str string, envs []string) string {
+	for _, env := range envs {
 		envVar := os.Getenv(env)
 		if len(envVar) > 0 {
 			str = strings.Replace(str, "${"+env+"}", envVar, -1)
