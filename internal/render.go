@@ -29,15 +29,19 @@ type HexArgocdPluginConfig struct {
 	SyncOptionReplace []string `yaml:"syncOptionReplace,omitempty"`
 }
 
-type Renderer struct {}
+type Renderer struct {
+	debugLogFilePath string
+}
 
 func NewRenderer() *Renderer {
 	return &Renderer{}
 }
 
-func (renderer *Renderer) RenderTemplate(helmChartPath string, debugLogPath string) {
-	if len(debugLogPath) <= 0 {
-		debugLogPath = defaultDebugLogFilePath
+func (renderer *Renderer) RenderTemplate(helmChartPath string, debugLogFilePath string) {
+	if len(debugLogFilePath) <= 0 {
+		renderer.debugLogFilePath = defaultDebugLogFilePath
+	} else {
+		renderer.debugLogFilePath = debugLogFilePath
 	}
 
 	if len(helmChartPath) <= 0 {
@@ -54,10 +58,12 @@ func (renderer *Renderer) RenderTemplate(helmChartPath string, debugLogPath stri
 	if len(configFileName) > 0 {
 		args = append(args, "-f")
 		args = append(args, configFileName)
+		renderer.inlineEnvsubst(configFileName, envs)
 	}
 
-	configFile := renderer.mergeYaml("values.yaml", configFileName)
-	argocdConfig := renderer.readArgocdConfig(configFile)
+	renderer.inlineEnvsubst("values.yaml", envs)
+	helmConfig := renderer.mergeYaml("values.yaml", configFileName)
+	argocdConfig := renderer.readArgocdConfig(helmConfig)
 
 	if len(argocdConfig.Namespace) > 0 {
 		args = append(args, "--namespace")
@@ -82,16 +88,15 @@ func (renderer *Renderer) RenderTemplate(helmChartPath string, debugLogPath stri
 	}
 
 	args = append(args, ".")
-	cmd := renderer.envsubst(strings.Join(args, " "), envs)
-	renderer.debugLog(cmd+"\n", debugLogPath)
+	cmd := strings.Join(args, " ")
+	renderer.debugLog(cmd+"\n")
 
 	out, err := exec.Command(command, strings.Split(cmd, " ")...).Output()
 	if err != nil {
 		log.Fatalf("Exec helm template error: %v", err)
 	}
 
-	manifest := renderer.envsubst(string(out), envs)
-	fmt.Println(manifest)
+	fmt.Println(string(out))
 }
 
 func (renderer *Renderer) dependencyBuild() {
@@ -143,6 +148,24 @@ func (renderer *Renderer) getArgocdEnvList() []string {
 		}
 	}
 	return envs
+}
+
+func (renderer *Renderer) inlineEnvsubst(filename string, envs[] string) {
+	// Read file
+	bs, err := ioutil.ReadFile(filename)
+	if err != nil {
+		renderer.debugLog(fmt.Sprintf("inlineEnvsubst - Read file error %v \n", err))
+		return
+	}
+	helmConfig := string(bs)
+
+	// Substitute
+	envsubstHelmConfig := renderer.envsubst(helmConfig, envs)
+
+	// Write file
+	if err := ioutil.WriteFile(filename, []byte(envsubstHelmConfig), 0644); err != nil {
+		renderer.debugLog(fmt.Sprintf("inlineEnvsubst - Write file error %v \n", err))
+	}
 }
 
 func (renderer *Renderer) envsubst(str string, envs []string) string {
@@ -228,10 +251,10 @@ func (renderer *Renderer) mergeYaml(filenames ...string) string {
 	return string(bs)
 }
 
-func (renderer *Renderer) debugLog(cmd string, debugLogFilePath string) {
+func (renderer *Renderer) debugLog(cmd string) {
 	date := time.Now()
 	formattedDate := date.Format("01-02-2006")
-	logFilePath := debugLogFilePath + formattedDate + ".log"
+	logFilePath := renderer.debugLogFilePath + formattedDate + ".log"
 
 	// Log line name - Get from Chart.yaml name field
 	chartYaml := ReadChartYaml()
@@ -243,7 +266,7 @@ func (renderer *Renderer) debugLog(cmd string, debugLogFilePath string) {
 	// Create log file if not exist
 	if _, err := ioutil.ReadFile(logFilePath); err != nil {
 		// Ignore if not able to create folder
-		_ = os.Mkdir(debugLogFilePath, 0755)
+		_ = os.Mkdir(renderer.debugLogFilePath, 0755)
 		
 		f, err := os.Create(logFilePath)
 		if err != nil {
