@@ -20,18 +20,6 @@ var (
 	argocdEnvVarPrefix      = "ARGOCD_ENV"
 )
 
-type HelmConfig struct {
-	ArgocdConfig HexArgocdPluginConfig `yaml:"argocd,omitempty"`
-}
-
-type HexArgocdPluginConfig struct {
-	ReleaseName           string   `yaml:"releaseName,omitempty"`
-	Namespace             string   `yaml:"namespace,omitempty"`
-	SkipCRD               bool     `yaml:"skipCRD,omitempty"`
-	SyncOptionReplace     []string `yaml:"syncOptionReplace,omitempty"`
-	ExternalHelmChartPath string   `yaml:"externalHelmChartPath,omitempty"` // relative path of the helm chart to use
-}
-
 type Renderer struct {
 	debugLogFilePath string
 }
@@ -57,7 +45,8 @@ func (renderer *Renderer) RenderTemplate(helmChartPath string, debugLogFilePath 
 	command := "helm"
 	args := []string{"template"}
 
-	renderer.useExternalHelmChart()
+	useExternalHelmChartPathIfSet()
+
 	configFileNames := renderer.findHelmConfigs()
 	if len(configFileNames) > 0 {
 		for _, name := range configFileNames {
@@ -68,7 +57,7 @@ func (renderer *Renderer) RenderTemplate(helmChartPath string, debugLogFilePath 
 	}
 
 	helmConfig := renderer.mergeYaml(configFileNames)
-	argocdConfig := renderer.readArgocdConfig(helmConfig)
+	argocdConfig := ReadArgocdConfig(helmConfig)
 
 	if len(argocdConfig.Namespace) > 0 {
 		args = append(args, "--namespace")
@@ -108,18 +97,6 @@ func (renderer *Renderer) RenderTemplate(helmChartPath string, debugLogFilePath 
 	fmt.Println(out.String())
 }
 
-func (renderer *Renderer) useExternalHelmChart() {
-	bs, err := ioutil.ReadFile("values.yaml")
-	if err != nil {
-		log.Fatalf("useExternalHelmChart - read values.yaml error : %v", err)
-	}
-
-	config := renderer.readArgocdConfig(string(bs))
-	if len(config.ExternalHelmChartPath) > 0 {
-		os.Chdir(config.ExternalHelmChartPath)
-	}
-}
-
 func (renderer *Renderer) findHelmConfigs() []string {
 	// Default to values.yaml
 	files := []string{"values.yaml"}
@@ -145,15 +122,6 @@ func (renderer *Renderer) findHelmConfigs() []string {
 		log.Fatalf("Find config file in dir error: %v", err)
 	}
 	return files
-}
-
-func (renderer *Renderer) readArgocdConfig(configFile string) *HexArgocdPluginConfig {
-	c := HelmConfig{}
-	err := yaml.Unmarshal([]byte(configFile), &c)
-	if err != nil {
-		log.Fatalf("Unmarshal config file error: %v", err)
-	}
-	return &c.ArgocdConfig
 }
 
 func (renderer *Renderer) getArgocdEnvList() []string {

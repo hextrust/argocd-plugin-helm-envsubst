@@ -54,6 +54,7 @@ func (builder *Builder) Build(helmChartPath string, repoConfigPath string, helmR
 	}
 
 	os.Chdir(helmChartPath)
+	useExternalHelmChartPathIfSet()
 	chartYaml := ReadChartYaml()
 
 	// Skip if chart doesn't have dependency
