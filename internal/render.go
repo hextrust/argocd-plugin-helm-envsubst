@@ -1,8 +1,8 @@
 package internal
 
 import (
+	"bytes"
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
 	"os"
@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -88,23 +90,19 @@ func (renderer *Renderer) RenderTemplate(helmChartPath string, debugLogFilePath 
 	}
 
 	args = append(args, ".")
-	cmd := strings.Join(args, " ")
-	renderer.debugLog(cmd+"\n")
+	strCmd := strings.Join(args, " ")
+	renderer.debugLog(strCmd + "\n")
 
-	out, err := exec.Command(command, strings.Split(cmd, " ")...).Output()
+	cmd := exec.Command(command, strings.Split(strCmd, " ")...)
+	var out, stderr bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+	err := cmd.Run()
 	if err != nil {
-		log.Fatalf("Exec helm template error: %v", err)
+		log.Fatalf("Exec helm template error: %s\n%s", err, stderr.String())
 	}
 
-	fmt.Println(string(out))
-}
-
-func (renderer *Renderer) dependencyBuild() {
-	out, err := exec.Command("helm", "dependency", "build").Output()
-	if err != nil {
-		log.Fatalf("Exec helm dependency build error: %v", err)
-	}
-	log.Printf("%s\n", out)
+	fmt.Println(out.String())
 }
 
 func (renderer *Renderer) findHelmConfig() string {
@@ -150,7 +148,7 @@ func (renderer *Renderer) getArgocdEnvList() []string {
 	return envs
 }
 
-func (renderer *Renderer) inlineEnvsubst(filename string, envs[] string) {
+func (renderer *Renderer) inlineEnvsubst(filename string, envs []string) {
 	// Read file
 	bs, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -245,7 +243,7 @@ func (renderer *Renderer) mergeYaml(filenames ...string) string {
 	}
 	bs, err := yaml.Marshal(resultValues)
 	if err != nil {
-		log.Fatalf("Marshal file error:", err)
+		log.Fatalf("Marshal file error: %v", err)
 	}
 
 	return string(bs)
@@ -267,7 +265,7 @@ func (renderer *Renderer) debugLog(cmd string) {
 	if _, err := ioutil.ReadFile(logFilePath); err != nil {
 		// Ignore if not able to create folder
 		_ = os.Mkdir(renderer.debugLogFilePath, 0755)
-		
+
 		f, err := os.Create(logFilePath)
 		if err != nil {
 			log.Fatalf("Fail to create log file: %v", err)
@@ -277,11 +275,11 @@ func (renderer *Renderer) debugLog(cmd string) {
 
 	f, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
-		log.Fatalf("Fail to opn debug log file:", err)
+		log.Fatalf("Fail to opn debug log file: %v", err)
 	}
 
 	// Write log line
 	if _, err = f.WriteString(logLine); err != nil {
-		log.Fatalf("Fail to write debug log file:", err)
+		log.Fatalf("Fail to write debug log file: %v", err)
 	}
 }
