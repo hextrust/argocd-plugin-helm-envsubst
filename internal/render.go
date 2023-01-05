@@ -56,15 +56,16 @@ func (renderer *Renderer) RenderTemplate(helmChartPath string, debugLogFilePath 
 	command := "helm"
 	args := []string{"template"}
 
-	configFileName := renderer.findHelmConfig()
-	if len(configFileName) > 0 {
-		args = append(args, "-f")
-		args = append(args, configFileName)
-		renderer.inlineEnvsubst(configFileName, envs)
+	configFileNames := renderer.findHelmConfigs()
+	if len(configFileNames) > 0 {
+		for _, name := range configFileNames {
+			args = append(args, "-f")
+			args = append(args, name)
+			renderer.inlineEnvsubst(name, envs)
+		}
 	}
 
-	renderer.inlineEnvsubst("values.yaml", envs)
-	helmConfig := renderer.mergeYaml("values.yaml", configFileName)
+	helmConfig := renderer.mergeYaml(configFileNames)
 	argocdConfig := renderer.readArgocdConfig(helmConfig)
 
 	if len(argocdConfig.Namespace) > 0 {
@@ -105,16 +106,23 @@ func (renderer *Renderer) RenderTemplate(helmChartPath string, debugLogFilePath 
 	fmt.Println(out.String())
 }
 
-func (renderer *Renderer) findHelmConfig() string {
-	var files []string
+func (renderer *Renderer) findHelmConfigs() []string {
+	// Default to values.yaml
+	files := []string{"values.yaml"}
 	root := "config/"
 	environment := os.Getenv("ARGOCD_ENV_ENVIRONMENT")
+	cluster := os.Getenv("ARGOCD_ENV_CLUSTER")
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			// log.Fatalf("Config folder not found: %v", err)
 			return nil
 		}
+		// e.g. config/dev.yaml
 		if !info.IsDir() && path == root+environment+".yaml" {
+			files = append(files, path)
+		}
+		// e.g. config/operator_dev.yaml
+		if !info.IsDir() && path == root+cluster+"_"+environment+".yaml" {
 			files = append(files, path)
 		}
 		return nil
@@ -122,10 +130,7 @@ func (renderer *Renderer) findHelmConfig() string {
 	if err != nil {
 		log.Fatalf("Find config file in dir error: %v", err)
 	}
-	if len(files) > 0 {
-		return files[0]
-	}
-	return ""
+	return files
 }
 
 func (renderer *Renderer) readArgocdConfig(configFile string) *HexArgocdPluginConfig {
@@ -213,12 +218,12 @@ kustomize build . && rm all.yaml && rm kustomization.yaml && rm kustomize-render
 	return scriptFileName
 }
 
-func (renderer *Renderer) mergeYaml(filenames ...string) string {
-	if len(filenames) <= 0 {
-		log.Fatalf("You must provide at least one filename for reading Values")
+func (renderer *Renderer) mergeYaml(configFiles []string) string {
+	if len(configFiles) <= 0 {
+		log.Fatalf("You must provide at least one config yaml")
 	}
 	var resultValues map[string]interface{}
-	for _, filename := range filenames {
+	for _, filename := range configFiles {
 
 		var override map[string]interface{}
 		bs, err := ioutil.ReadFile(filename)

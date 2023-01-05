@@ -2,11 +2,11 @@
 
 # echo "run..."
 
-export ARGOCD_ENV_ENVIRONMENT=develop
+export ARGOCD_ENV_ENVIRONMENT=alpha
 export ARGOCD_ENV_ES_HOST=clustercfg.elasticache-metazen-beta.fckkzb.apse1.cache.amazonaws.com 
 export ARGOCD_ENV_ES_PORT=6379
 export ARGOCD_ENV_CHAIN_ID=4
-export ARGOCD_ENV_CLUSTER=develop
+export ARGOCD_ENV_CLUSTER=metazen
 export ARGOCD_ENV_DOMAIN=test.alpha.metazens.xyz
 export ARGOCD_ENV_OPERATOR_DOMAIN=develop.operator.hextech.io
 export ARGOCD_ENV_HOSTED_ZONE_ID=Z08321952NOP80HU1BX1D
