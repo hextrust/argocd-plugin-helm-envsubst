@@ -1,0 +1,15 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ConfigManagementPlugin
+metadata:
+  name: cmp-plugin
+spec:
+  version: v1.0
+  init:
+    command: ["sh", "-c"]
+    args: ["argocd-helm-envsubst-plugin build --helm-registry-secret-config-path /helm-working-dir/plugin-repositories/repositories.yaml"]
+  generate:
+    command: ["sh", "-c"]
+    args: ["argocd-helm-envsubst-plugin render --log-location /tmp/argocd-helm-envsubst-plugin/"]
+  discover:
+    find:
+      command: ["echo", "hi"]
