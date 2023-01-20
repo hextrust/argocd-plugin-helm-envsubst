@@ -1,13 +1,15 @@
 package internal
 
 import (
+	"bytes"
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
 	"strings"
+
+	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -34,9 +36,9 @@ type Repository struct {
 	Url                   string `default:"" yaml:"url"`
 }
 
-type Builder struct {}
+type Builder struct{}
 
-func NewBuilder() *Builder { 
+func NewBuilder() *Builder {
 	return &Builder{}
 }
 
@@ -52,8 +54,9 @@ func (builder *Builder) Build(helmChartPath string, repoConfigPath string, helmR
 	}
 
 	os.Chdir(helmChartPath)
+	useExternalHelmChartPathIfSet()
 	chartYaml := ReadChartYaml()
-	
+
 	// Skip if chart doesn't have dependency
 	dependencies := chartYaml["dependencies"]
 	if dependencies == nil || len(dependencies.([]interface{})) <= 0 {
@@ -64,7 +67,7 @@ func (builder *Builder) Build(helmChartPath string, repoConfigPath string, helmR
 	// Use app name as config file name
 	repositoryConfigName := repoConfigPath + chartYaml["name"].(string) + ".yaml"
 	log.Printf("repositoryConfigName: %s\n", repositoryConfigName)
-	
+
 	builder.generateRepositoryConfig(repositoryConfigName, chartYaml, helmRegistrySecretConfigPath)
 	builder.executeHelmDependencyBuild(repositoryConfigName)
 }
@@ -138,9 +141,13 @@ func (builder *Builder) readRepositoryConfig(repositoryUrl string, helmRegistryS
 func (builder *Builder) executeHelmDependencyBuild(repositoryConfigName string) {
 	command := "helm"
 	args := []string{"dependency", "build", "--repository-config", repositoryConfigName}
-	out, err := exec.Command(command, args...).Output()
+	cmd := exec.Command(command, args...)
+	var out, stderr bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+	err := cmd.Run()
 	if err != nil {
-		log.Fatalf("Exec helm dependency build error: %v", err)
+		log.Fatalf("Exec helm dependency build error: %s\n%s", err, stderr.String())
 	}
-	log.Println(string(out))
+	log.Println(out.String())
 }

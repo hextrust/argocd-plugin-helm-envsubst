@@ -1,8 +1,8 @@
 package internal
 
 import (
+	"bytes"
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
 	"os"
@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -17,17 +19,6 @@ var (
 	defaultHelmChartPath    = "./"
 	argocdEnvVarPrefix      = "ARGOCD_ENV"
 )
-
-type HelmConfig struct {
-	ArgocdConfig HexArgocdPluginConfig `yaml:"argocd,omitempty"`
-}
-
-type HexArgocdPluginConfig struct {
-	ReleaseName       string   `yaml:"releaseName,omitempty"`
-	Namespace         string   `yaml:"namespace,omitempty"`
-	SkipCRD           bool     `yaml:"skipCRD,omitempty"`
-	SyncOptionReplace []string `yaml:"syncOptionReplace,omitempty"`
-}
 
 type Renderer struct {
 	debugLogFilePath string
@@ -54,16 +45,19 @@ func (renderer *Renderer) RenderTemplate(helmChartPath string, debugLogFilePath 
 	command := "helm"
 	args := []string{"template"}
 
-	configFileName := renderer.findHelmConfig()
-	if len(configFileName) > 0 {
-		args = append(args, "-f")
-		args = append(args, configFileName)
-		renderer.inlineEnvsubst(configFileName, envs)
+	useExternalHelmChartPathIfSet()
+
+	configFileNames := renderer.findHelmConfigs()
+	if len(configFileNames) > 0 {
+		for _, name := range configFileNames {
+			args = append(args, "-f")
+			args = append(args, name)
+			renderer.inlineEnvsubst(name, envs)
+		}
 	}
 
-	renderer.inlineEnvsubst("values.yaml", envs)
-	helmConfig := renderer.mergeYaml("values.yaml", configFileName)
-	argocdConfig := renderer.readArgocdConfig(helmConfig)
+	helmConfig := renderer.mergeYaml(configFileNames)
+	argocdConfig := ReadArgocdConfig(helmConfig)
 
 	if len(argocdConfig.Namespace) > 0 {
 		args = append(args, "--namespace")
@@ -88,35 +82,38 @@ func (renderer *Renderer) RenderTemplate(helmChartPath string, debugLogFilePath 
 	}
 
 	args = append(args, ".")
-	cmd := strings.Join(args, " ")
-	renderer.debugLog(cmd+"\n")
+	strCmd := strings.Join(args, " ")
+	renderer.debugLog(strCmd + "\n")
 
-	out, err := exec.Command(command, strings.Split(cmd, " ")...).Output()
+	cmd := exec.Command(command, strings.Split(strCmd, " ")...)
+	var out, stderr bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &stderr
+	err := cmd.Run()
 	if err != nil {
-		log.Fatalf("Exec helm template error: %v", err)
+		log.Fatalf("Exec helm template error: %s\n%s", err, stderr.String())
 	}
 
-	fmt.Println(string(out))
+	fmt.Println(out.String())
 }
 
-func (renderer *Renderer) dependencyBuild() {
-	out, err := exec.Command("helm", "dependency", "build").Output()
-	if err != nil {
-		log.Fatalf("Exec helm dependency build error: %v", err)
-	}
-	log.Printf("%s\n", out)
-}
-
-func (renderer *Renderer) findHelmConfig() string {
-	var files []string
+func (renderer *Renderer) findHelmConfigs() []string {
+	// Default to values.yaml
+	files := []string{"values.yaml"}
 	root := "config/"
 	environment := os.Getenv("ARGOCD_ENV_ENVIRONMENT")
+	cluster := os.Getenv("ARGOCD_ENV_CLUSTER")
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			// log.Fatalf("Config folder not found: %v", err)
 			return nil
 		}
+		// e.g. config/dev.yaml
 		if !info.IsDir() && path == root+environment+".yaml" {
+			files = append(files, path)
+		}
+		// e.g. config/operator_dev.yaml
+		if !info.IsDir() && path == root+cluster+"_"+environment+".yaml" {
 			files = append(files, path)
 		}
 		return nil
@@ -124,19 +121,7 @@ func (renderer *Renderer) findHelmConfig() string {
 	if err != nil {
 		log.Fatalf("Find config file in dir error: %v", err)
 	}
-	if len(files) > 0 {
-		return files[0]
-	}
-	return ""
-}
-
-func (renderer *Renderer) readArgocdConfig(configFile string) *HexArgocdPluginConfig {
-	c := HelmConfig{}
-	err := yaml.Unmarshal([]byte(configFile), &c)
-	if err != nil {
-		log.Fatalf("Unmarshal config file error: %v", err)
-	}
-	return &c.ArgocdConfig
+	return files
 }
 
 func (renderer *Renderer) getArgocdEnvList() []string {
@@ -150,7 +135,7 @@ func (renderer *Renderer) getArgocdEnvList() []string {
 	return envs
 }
 
-func (renderer *Renderer) inlineEnvsubst(filename string, envs[] string) {
+func (renderer *Renderer) inlineEnvsubst(filename string, envs []string) {
 	// Read file
 	bs, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -215,12 +200,12 @@ kustomize build . && rm all.yaml && rm kustomization.yaml && rm kustomize-render
 	return scriptFileName
 }
 
-func (renderer *Renderer) mergeYaml(filenames ...string) string {
-	if len(filenames) <= 0 {
-		log.Fatalf("You must provide at least one filename for reading Values")
+func (renderer *Renderer) mergeYaml(configFiles []string) string {
+	if len(configFiles) <= 0 {
+		log.Fatalf("You must provide at least one config yaml")
 	}
 	var resultValues map[string]interface{}
-	for _, filename := range filenames {
+	for _, filename := range configFiles {
 
 		var override map[string]interface{}
 		bs, err := ioutil.ReadFile(filename)
@@ -245,7 +230,7 @@ func (renderer *Renderer) mergeYaml(filenames ...string) string {
 	}
 	bs, err := yaml.Marshal(resultValues)
 	if err != nil {
-		log.Fatalf("Marshal file error:", err)
+		log.Fatalf("Marshal file error: %v", err)
 	}
 
 	return string(bs)
@@ -267,7 +252,7 @@ func (renderer *Renderer) debugLog(cmd string) {
 	if _, err := ioutil.ReadFile(logFilePath); err != nil {
 		// Ignore if not able to create folder
 		_ = os.Mkdir(renderer.debugLogFilePath, 0755)
-		
+
 		f, err := os.Create(logFilePath)
 		if err != nil {
 			log.Fatalf("Fail to create log file: %v", err)
@@ -277,11 +262,11 @@ func (renderer *Renderer) debugLog(cmd string) {
 
 	f, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
-		log.Fatalf("Fail to opn debug log file:", err)
+		log.Fatalf("Fail to opn debug log file: %v", err)
 	}
 
 	// Write log line
 	if _, err = f.WriteString(logLine); err != nil {
-		log.Fatalf("Fail to write debug log file:", err)
+		log.Fatalf("Fail to write debug log file: %v", err)
 	}
 }
