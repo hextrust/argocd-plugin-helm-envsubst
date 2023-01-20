@@ -2,7 +2,7 @@
 
 ## Usage
 ### Build dependency
-```bash
+```bash 
 $ argocd-helm-envsubst-plugin build 
 Usage:
   argocd-helm-envsubst-plugin build [flags]
