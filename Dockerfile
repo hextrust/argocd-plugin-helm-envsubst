@@ -1,4 +1,4 @@
-FROM golang:1.18-alpine3.16 as builder
+FROM --platform=$BUILDPLATFORM golang:1.18-alpine3.16 as builder
 
 WORKDIR /app
 COPY go.mod .
@@ -7,9 +7,9 @@ RUN go mod download
 
 COPY . .
 
-ARG GOOS GOARCH
+ARG TARGETOS TARGETARCH
 # CGO_ENABLED=0 for cross platform build
-RUN CGO_ENABLED=0 GOOS=${GOOS} GOARCH=${GOARCH} go build -o argocd-helm-envsubst-plugin
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o argocd-helm-envsubst-plugin
 
 FROM alpine:3.16 as helm-builder
 
@@ -32,17 +32,20 @@ RUN case `uname -m` in \
 
 FROM alpine:3.16
 
-# used by plugin to create temporary helm repositories.yaml
-RUN mkdir /helm-working-dir
+# Used by plugin to create temporary helm repositories.yaml
+RUN mkdir /helm-working-dir 
 RUN chmod 777 /helm-working-dir
 
+# Set default helm cache dir to somewhere we can read write
 ENV HELM_CACHE_HOME /helm-working-dir
 
-# this is the required location for argocd to recognize the plugin
-# ref: https://argo-cd.readthedocs.io/en/stable/user-guide/config-management-plugins/
-WORKDIR /home/argocd/cmp-server/config/
-COPY ConfigManagementPlugin.yaml ./plugin.yaml
+# This is the required location for argocd to recognize the plugin
+# https://argo-cd.readthedocs.io/en/stable/user-guide/config-management-plugins/
+COPY ConfigManagementPlugin.yaml /home/argocd/cmp-server/config/plugin.yaml
 
 COPY --from=helm-builder /app/helm /usr/bin/
 
 COPY --from=builder /app/argocd-helm-envsubst-plugin /usr/bin/
+
+# Backward compatibility - to be removed
+RUN cp /usr/bin /app/argocd-helm-envsubst-plugin
