@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM golang:1.18-alpine3.16 as builder
+FROM --platform=$BUILDPLATFORM registry.tech.hextech.io/library/golang:1.18.3-alpine3.16 as builder
 
 WORKDIR /app
 COPY go.mod .
@@ -9,7 +9,7 @@ COPY . .
 
 ARG TARGETOS TARGETARCH
 # CGO_ENABLED=0 for cross platform build
-RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -o argocd-helm-envsubst-plugin
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o argocd-helm-envsubst-plugin
 
 FROM alpine:3.16 as helm-builder
 
@@ -30,7 +30,7 @@ RUN case `uname -m` in \
     chmod +x linux-${ARCH}/helm && \
     mv linux-${ARCH}/helm /app/helm
 
-FROM alpine:3.16
+FROM registry.tech.hextech.io/library/alpine:3.16
 
 # Used by plugin to create temporary helm repositories.yaml
 RUN mkdir /helm-working-dir 
