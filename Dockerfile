@@ -48,4 +48,4 @@ COPY --from=helm-builder /app/helm /usr/bin/
 COPY --from=builder /app/argocd-helm-envsubst-plugin /usr/bin/
 
 # Backward compatibility - to be removed
-RUN cp /usr/bin /app/argocd-helm-envsubst-plugin
+COPY --from=builder /app/argocd-helm-envsubst-plugin /app/argocd-helm-envsubst-plugin
