@@ -164,23 +164,31 @@ func (renderer *Renderer) envsubst(str string, envs []string) string {
 }
 
 func (renderer *Renderer) preparePostRenderer(files []string) string {
-	scriptFileName := "./kustomize-renderer"
+	// Get the current temp path
+	pwd, err := os.Getwd()
+	if err != nil {
+		log.Fatalf("osGetwd error: %s", err)
+	}
+
+	scriptPath := pwd + "/kustomize-renderer"
+	kustomizeYamlPath := pwd + "/kustomization.yaml"
+	allPath := pwd + "/all.yaml"
 
 	// Create shell script
-	script := `#!/bin/bash
-cat <&0 > all.yaml
-kustomize build . && rm all.yaml && rm kustomization.yaml && rm kustomize-renderer`
+	script := fmt.Sprintf(`#!/bin/sh
+	cat <&0 > %s
+	kustomize build .`, allPath)
 
-	err := os.WriteFile(scriptFileName, []byte(script), 0777)
+	err = os.WriteFile(scriptPath, []byte(script), 0777)
 	if err != nil {
 		log.Fatalf("Create kustomize-renderer error: %s", err)
 	}
 
 	// Create kustomize file
 	kustomizations := []string{fmt.Sprintf(
-		"resources:\n" +
-			"- all.yaml\n" +
-			"patches:")}
+		"resources:\n"+
+			"- %s\n"+
+			"patches:", allPath)}
 
 	for _, file := range files {
 		kustomizations = append(kustomizations, fmt.Sprintf(
@@ -192,12 +200,12 @@ kustomize build . && rm all.yaml && rm kustomization.yaml && rm kustomize-render
 				"    name: %v", file))
 	}
 
-	err = os.WriteFile("./kustomization.yaml", []byte(strings.Join(kustomizations, "\n")), 0777)
+	err = os.WriteFile(kustomizeYamlPath, []byte(strings.Join(kustomizations, "\n")), 0777)
 	if err != nil {
-		log.Fatalf("Create kustomization.yaml error: %s", err)
+		log.Fatalf("Create %s error: %s", kustomizeYamlPath, err)
 	}
 
-	return scriptFileName
+	return scriptPath
 }
 
 func (renderer *Renderer) mergeYaml(configFiles []string) string {
