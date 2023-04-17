@@ -23,3 +23,6 @@ helm-build:
 
 helm-render:
 	go run main.go render --path asset-master-service
+
+test:
+	go test ./... -v

@@ -1,6 +1,6 @@
 include:
   - project: technology/utils/cicd/gitlab-ci-pipeline-templates
-    ref: v2.10.12
+    ref: v2.16.0
     file:
       - workflow.gitlab-ci.yml
       - docker.buildx.gitlab-ci.yml
