@@ -8,8 +8,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
+
+	"regexp"
 
 	"gopkg.in/yaml.v2"
 )
@@ -19,6 +22,11 @@ var (
 	defaultHelmChartPath    = "./"
 	argocdEnvVarPrefix      = "ARGOCD_ENV"
 )
+
+type ConfigFileSeq struct {
+	Seq  int
+	Name string
+}
 
 type Renderer struct {
 	debugLogFilePath string
@@ -47,7 +55,7 @@ func (renderer *Renderer) RenderTemplate(helmChartPath string, debugLogFilePath 
 
 	useExternalHelmChartPathIfSet()
 
-	configFileNames := renderer.findHelmConfigs()
+	configFileNames := renderer.FindHelmConfigs()
 	if len(configFileNames) > 0 {
 		for _, name := range configFileNames {
 			args = append(args, "-f")
@@ -97,31 +105,50 @@ func (renderer *Renderer) RenderTemplate(helmChartPath string, debugLogFilePath 
 	fmt.Println(out.String())
 }
 
-func (renderer *Renderer) findHelmConfigs() []string {
+func (renderer *Renderer) FindHelmConfigs() []string {
 	// Default to values.yaml
-	files := []string{"values.yaml"}
+	files := []ConfigFileSeq{
+		{
+			Seq:  0,
+			Name: "values.yaml",
+		},
+	}
 	root := "config/"
 	environment := os.Getenv("ARGOCD_ENV_ENVIRONMENT")
 	cluster := os.Getenv("ARGOCD_ENV_CLUSTER")
+	helmConfigFilePatterns := []string{
+		"values.yaml",
+		root + environment + ".yaml",
+		root + cluster + "_" + environment + ".yaml",
+	}
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			// log.Fatalf("Config folder not found: %v", err)
 			return nil
 		}
-		// e.g. config/dev.yaml
-		if !info.IsDir() && path == root+environment+".yaml" {
-			files = append(files, path)
-		}
-		// e.g. config/operator_dev.yaml
-		if !info.IsDir() && path == root+cluster+"_"+environment+".yaml" {
-			files = append(files, path)
+		for seq, pattern := range helmConfigFilePatterns {
+			if match, _ := regexp.MatchString(pattern, path); match {
+				files = append(files, ConfigFileSeq{Seq: seq, Name: path})
+			}
 		}
 		return nil
 	})
 	if err != nil {
 		log.Fatalf("Find config file in dir error: %v", err)
 	}
-	return files
+
+	// sort
+	sort.Slice(files, func(i, j int) bool {
+		return files[i].Seq < files[j].Seq
+	})
+
+	// convert array of struct to array of string
+	sortedFiles := []string{}
+	for _, file := range files {
+		sortedFiles = append(sortedFiles, file.Name)
+	}
+
+	return sortedFiles
 }
 
 func (renderer *Renderer) getArgocdEnvList() []string {
