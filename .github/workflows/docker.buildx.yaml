@@ -33,5 +33,5 @@ jobs:
           docker buildx build \
             --platform linux/amd64,linux/arm64 \
             --file ${{ env.DOCKERFILE_PATH }} \
-            --tag ghcr.io/${{ github.repository }}/${{ env.DOCKER_IMAGE_NAME }}:latest \
+            --tag ghcr.io/${{ github.repository }}:latest \
             --push .
