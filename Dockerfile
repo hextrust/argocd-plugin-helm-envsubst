@@ -1,5 +1,6 @@
+ARG REGISTRY_URL=registry.hub.docker.com
 #------ Build golang app ------#
-FROM --platform=$BUILDPLATFORM registry.tech.hextech.io/library/golang:1.18.3-alpine3.16 as builder
+FROM --platform=$BUILDPLATFORM ${REGISTRY_URL}/library/golang:1.18.3-alpine3.16 as builder
 
 WORKDIR /app
 COPY go.mod .
@@ -13,7 +14,7 @@ ARG TARGETOS TARGETARCH
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o argocd-helm-envsubst-plugin
 
 #------ Install dependening software ------#
-FROM registry.tech.hextech.io/library/alpine:3.16 as helm-builder
+FROM ${REGISTRY_URL}/library/alpine:3.16 as helm-builder
 
 # amd64/arm64
 ARG TARGETARCH
@@ -34,7 +35,7 @@ RUN wget ${KUSTOMIZE_BASE_URL}/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KU
     chmod +x kustomize
 
 #------ Final image ------# 
-FROM registry.tech.hextech.io/library/alpine:3.16
+FROM ${REGISTRY_URL}/library/alpine:3.16
 
 # Used by plugin to create temporary helm repositories.yaml
 RUN mkdir /helm-working-dir 
