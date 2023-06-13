@@ -116,10 +116,19 @@ func (renderer *Renderer) FindHelmConfigs() []string {
 	root := "config/"
 	environment := os.Getenv("ARGOCD_ENV_ENVIRONMENT")
 	cluster := os.Getenv("ARGOCD_ENV_CLUSTER")
+	token := os.Getenv("ARGOCD_ENV_TOKEN")
 	helmConfigFilePatterns := []string{
 		"values.yaml",
 		root + environment + ".yaml",
 		root + cluster + "_" + environment + ".yaml",
+	}
+	if len(token) > 0 {
+		helmConfigFilePatterns = []string{
+			"values.yaml",
+			root + environment + ".yaml",
+			root + cluster + "_" + environment + ".yaml",
+			"_" + token + "/values.yaml",
+		}
 	}
 	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
