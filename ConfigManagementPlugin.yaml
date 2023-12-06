@@ -12,4 +12,4 @@ spec:
     args: ["argocd-helm-envsubst-plugin render --log-location /tmp/argocd-helm-envsubst-plugin/"]
   discover:
     find:
-      command: ["echo", "hi"]
+      command: ["if [[ ${ARGOCD_ENV_HELM_ENVSUBST_PLUGIN_DISABLE} ]]; then exit 1; else exit 0; fi"]
