@@ -78,6 +78,14 @@ func (builder *Builder) generateRepositoryConfig(repositoryConfigName string, ch
 	for _, dep := range chartYaml["dependencies"].([]interface{}) {
 		d := dep.(map[interface{}]interface{})
 		repositoryUrl := d["repository"].(string)
+
+		// Do not include repository url in the repositories.yaml if it is not https
+		// Helm does not create an [app]-index.yaml that contains all the version of the chart for non-https repo
+		// Including the url in the repositories.yaml will cause the helm to lookup for the index file and fail
+		if !strings.HasPrefix(repositoryUrl, "https://") {
+			continue
+		}
+
 		name := d["name"].(string)
 		username := ""
 		password := ""
