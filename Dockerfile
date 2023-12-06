@@ -23,14 +23,14 @@ RUN apk add --update --no-cache wget git curl
 # Install helm
 ARG HELM_VERSION=3.13.2
 ENV HELM_BASE_URL="https://get.helm.sh"
-RUN wget ${HELM_BASE_URL}/helm-v${HELM_VERSION}-linux-${TARGETARCH}.tar.gz -O - | tar -xz && \
+RUN wget --progress=dot:giga ${HELM_BASE_URL}/helm-v${HELM_VERSION}-linux-${TARGETARCH}.tar.gz -O - | tar -xz && \
     chmod +x linux-${TARGETARCH}/helm && \
     mv linux-${TARGETARCH}/helm /app/helm
 
 # Install kustomize
 ARG KUSTOMIZE_VERSION=5.2.1
 ENV KUSTOMIZE_BASE_URL="https://github.com/kubernetes-sigs/kustomize/releases/download"
-RUN wget ${KUSTOMIZE_BASE_URL}/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_${TARGETARCH}.tar.gz -O - | tar -xz && \
+RUN wget --progress=dot:giga ${KUSTOMIZE_BASE_URL}/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_${TARGETARCH}.tar.gz -O - | tar -xz && \
     chmod +x kustomize
 
 #------ Final image ------# 
@@ -39,8 +39,7 @@ FROM alpine:3.18
 RUN apk update && apk upgrade
 
 # Used by plugin to create temporary helm repositories.yaml
-RUN mkdir /helm-working-dir 
-RUN chmod 777 /helm-working-dir
+RUN mkdir /helm-working-dir && chmod 777 /helm-working-dir
 
 # Set default helm cache dir to somewhere we can read write
 ENV HELM_CACHE_HOME /helm-working-dir
