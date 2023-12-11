@@ -12,5 +12,5 @@ spec:
     args: ["argocd-helm-envsubst-plugin render --log-location /tmp/argocd-helm-envsubst-plugin/"]
   discover:
     find:
-      command: ["sh", "-c"]
-      args: ["if [[ ${ARGOCD_ENV_HELM_ENVSUBST_PLUGIN_DISABLE} ]]; then exit 1; else echo 'Activating Helm Envsubst Plugin'; fi"]
+      # This does the same thing as fileName, but it supports double-start (nested directory) glob patterns.
+      glob: "**/Chart.yaml"
