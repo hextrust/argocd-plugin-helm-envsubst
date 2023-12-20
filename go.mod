@@ -1,6 +1,6 @@
 module gitlab.int.hextech.io/technology/utils/cicd/argocd-helm-envsubst-plugin
 
-go 1.18
+go 1.21
 
 require (
 	github.com/spf13/cobra v1.5.0

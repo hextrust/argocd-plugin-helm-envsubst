@@ -12,4 +12,5 @@ spec:
     args: ["argocd-helm-envsubst-plugin render --log-location /tmp/argocd-helm-envsubst-plugin/"]
   discover:
     find:
-      command: ["echo", "hi"]
+      # This does the same thing as fileName, but it supports double-start (nested directory) glob patterns.
+      glob: "**/Chart.yaml"

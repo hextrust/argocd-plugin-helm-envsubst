@@ -1,5 +1,5 @@
 #------ Build golang app ------#
-FROM --platform=$BUILDPLATFORM registry.tech.hextech.io/library/golang:1.18.3-alpine3.16 as builder
+FROM --platform=$BUILDPLATFORM golang:1.21-alpine3.19 as builder
 
 WORKDIR /app
 COPY go.mod .
@@ -13,7 +13,7 @@ ARG TARGETOS TARGETARCH
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -o argocd-helm-envsubst-plugin
 
 #------ Install dependening software ------#
-FROM registry.tech.hextech.io/library/alpine:3.16 as helm-builder
+FROM alpine:3.19 as helm-builder
 
 # amd64/arm64
 ARG TARGETARCH
@@ -21,24 +21,25 @@ WORKDIR /app
 RUN apk add --update --no-cache wget git curl
 
 # Install helm
-ARG HELM_VERSION=3.10.3
+ARG HELM_VERSION=3.13.3
 ENV HELM_BASE_URL="https://get.helm.sh"
-RUN wget ${HELM_BASE_URL}/helm-v${HELM_VERSION}-linux-${TARGETARCH}.tar.gz -O - | tar -xz && \
+RUN wget --progress=dot:giga ${HELM_BASE_URL}/helm-v${HELM_VERSION}-linux-${TARGETARCH}.tar.gz -O - | tar -xz && \
     chmod +x linux-${TARGETARCH}/helm && \
     mv linux-${TARGETARCH}/helm /app/helm
 
 # Install kustomize
-ARG KUSTOMIZE_VERSION=4.5.7
+ARG KUSTOMIZE_VERSION=5.3.0
 ENV KUSTOMIZE_BASE_URL="https://github.com/kubernetes-sigs/kustomize/releases/download"
-RUN wget ${KUSTOMIZE_BASE_URL}/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_${TARGETARCH}.tar.gz -O - | tar -xz && \
+RUN wget --progress=dot:giga ${KUSTOMIZE_BASE_URL}/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_${TARGETARCH}.tar.gz -O - | tar -xz && \
     chmod +x kustomize
 
 #------ Final image ------# 
-FROM registry.tech.hextech.io/library/alpine:3.16
+FROM alpine:3.19
+
+RUN apk update && apk upgrade
 
 # Used by plugin to create temporary helm repositories.yaml
-RUN mkdir /helm-working-dir 
-RUN chmod 777 /helm-working-dir
+RUN mkdir /helm-working-dir && chmod 777 /helm-working-dir
 
 # Set default helm cache dir to somewhere we can read write
 ENV HELM_CACHE_HOME /helm-working-dir
